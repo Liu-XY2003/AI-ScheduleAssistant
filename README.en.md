@@ -13,7 +13,7 @@
 ## What this is
 
 The Android client for
-[Local Schedule Assistant](https://github.com/liuxinyang/qwen-schedule-agent).
+[Local Schedule Assistant](https://github.com/Liu-XY2003/qwen-schedule-agent).
 The backend runs on your own computer (FastAPI + llama.cpp + Qwen3-0.6B + LoRA) and the
 phone talks to it over HTTP.
 
@@ -43,7 +43,7 @@ network, so connecting directly is by far the simplest option.
 phone and the web UI can never disagree about an absolute time.
 
 > A client alone is not enough — start the backend first:
-> [qwen-schedule-agent](https://github.com/liuxinyang/qwen-schedule-agent).
+> [qwen-schedule-agent](https://github.com/Liu-XY2003/qwen-schedule-agent).
 
 ---
 

@@ -12,7 +12,7 @@
 
 ## 这个 App 是什么
 
-[本地日程助手](https://github.com/liuxinyang/qwen-schedule-agent) 的安卓客户端。
+[本地日程助手](https://github.com/Liu-XY2003/qwen-schedule-agent) 的安卓客户端。
 后端跑在你自己的电脑上（FastAPI + llama.cpp + Qwen3-0.6B + LoRA），
 手机通过 HTTP 连过去。
 
@@ -41,7 +41,7 @@ Tailscale 网络里，直接连最省事。
 绝对时间必然一致。
 
 > 只有客户端是不够的，需要先跑起后端：见
-> [qwen-schedule-agent](https://github.com/liuxinyang/qwen-schedule-agent)。
+> [qwen-schedule-agent](https://github.com/Liu-XY2003/qwen-schedule-agent)。
 
 ---
 
