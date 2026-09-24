@@ -1,5 +1,9 @@
 # AI Schedule Assistant · Android client
 
+[![Android CI](https://github.com/Liu-XY2003/AI-ScheduleAssistant/actions/workflows/android.yml/badge.svg)](https://github.com/Liu-XY2003/AI-ScheduleAssistant/actions/workflows/android.yml)
+[![Release](https://img.shields.io/github/v/release/Liu-XY2003/AI-ScheduleAssistant)](https://github.com/Liu-XY2003/AI-ScheduleAssistant/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Add a calendar event in one sentence. Inference runs on your own computer; the phone only handles input and display.**
 
 [中文](README.md) · [Screens](#screens) · [Build](#build) · [Connect to the backend](#connect-to-the-backend)

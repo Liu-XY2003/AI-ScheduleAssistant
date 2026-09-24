@@ -1,5 +1,9 @@
 # AI 日程助手 · 安卓客户端
 
+[![Android CI](https://github.com/Liu-XY2003/AI-ScheduleAssistant/actions/workflows/android.yml/badge.svg)](https://github.com/Liu-XY2003/AI-ScheduleAssistant/actions/workflows/android.yml)
+[![Release](https://img.shields.io/github/v/release/Liu-XY2003/AI-ScheduleAssistant)](https://github.com/Liu-XY2003/AI-ScheduleAssistant/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **一句话加日程。推理跑在你自己的电脑上，手机只做输入和展示。**
 
 [English](README.en.md) · [界面](#界面) · [构建](#构建) · [连接后端](#连接后端)
