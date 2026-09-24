@@ -40,3 +40,6 @@ local.properties
 # ------------------------------------------------------------------ 其他
 .DS_Store
 Thumbs.db
+
+# Release 资产暂存 (走 Release, 不进 git)
+_release/
