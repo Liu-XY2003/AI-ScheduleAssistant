@@ -1,0 +1,18 @@
+# 统一换行符
+* text=auto eol=lf
+
+# ⚠️ Windows 批处理必须 CRLF, 否则 cmd 解析会出错
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Gradle wrapper 是二进制 jar, 别让 git 碰
+gradle/wrapper/*.jar binary
+
+# 图片
+*.png binary
+*.jpg binary
+*.webp binary
+
+# 生成的 Kotlin 主题 token —— 由后端仓库的 theme/gen_theme.py 生成,
+# 让 GitHub 的语言统计不要把它当成主要手写代码
+app/src/main/java/com/liuxinyang/ai_scheduleassistant/ui/theme/Tokens.kt linguist-generated=true

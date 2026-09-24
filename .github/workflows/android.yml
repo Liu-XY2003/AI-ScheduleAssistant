@@ -1,0 +1,60 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建 Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'          # AGP 9.x 要求 JDK 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # local.properties 不入库 (含本机 SDK 路径), 在 CI 里现造一个。
+      # 这是 Android 项目的标准做法 —— 别把 sdk.dir 提交上去。
+      - name: 生成本地 SDK 配置
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      # Windows 上提交的文件在 Linux runner 上没有 +x 位, 不加这行会
+      # "Permission denied"。git 在 Windows 也改不了 mode, 只能在这里补。
+      - name: 给 gradlew 加可执行位
+        run: chmod +x ./gradlew
+
+      - name: 编译
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      - name: 单元测试 (如果有)
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+        continue-on-error: true
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  # 主题 token 是后端仓库生成的。这里只检查"生成物存在且标注为自动生成",
+  # 真正的一致性校验在后端仓库的 CI 里 (那边才有 tokens.json)。
+  theme-token-guard:
+    name: 主题 token 完整性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tokens.kt 必须存在且标注为自动生成
+        run: |
+          f=app/src/main/java/com/liuxinyang/ai_scheduleassistant/ui/theme/Tokens.kt
+          test -f "$f" || { echo "缺少 $f —— 需要从后端仓库跑 theme/gen_theme.py 生成"; exit 1; }
+          grep -q 'AUTO-GENERATED' "$f" || { echo "$f 缺少自动生成标记, 可能被手改过"; exit 1; }
+          grep -q 'val PAPER' "$f" && grep -q 'val NIGHT' "$f" || { echo "缺少 PAPER/NIGHT 两套主题"; exit 1; }
+          echo "主题 token 完整"

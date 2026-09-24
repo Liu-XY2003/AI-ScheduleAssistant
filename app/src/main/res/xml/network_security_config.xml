@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  允许明文 HTTP。
+  路线B 里手机通过 Tailscale / 局域网直连自己电脑上的 FastAPI 服务 (http://100.x.x.x:8800)。
+  Tailscale 本身已做端到端加密, 这里放开明文是为了能用私有 IP 直连。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
