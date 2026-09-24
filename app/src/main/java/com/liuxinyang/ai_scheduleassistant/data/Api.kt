@@ -11,6 +11,13 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
+ * 后端设了 SCHED_TOKEN 而本地令牌不对/没填。
+ * 单独建一个类型, 好让界面能给出"去设置里填令牌"的明确提示,
+ * 而不是笼统的 "HTTP 401"。
+ */
+class UnauthorizedException : RuntimeException("需要访问令牌")
+
+/**
  * 访问自己电脑上的日程服务。
  *
  * 用 OkHttp + org.json: 只用最少的外部依赖, 避免和很新的 AGP/Compose 版本打架。
@@ -30,22 +37,39 @@ object Api {
 
     private fun base(url: String) = url.trimEnd('/')
 
-    private fun get(url: String): JSONObject {
-        val req = Request.Builder().url(url).get().build()
+    /**
+     * 带上访问令牌。
+     *
+     * 后端设了 SCHED_TOKEN 时, 所有 /api 下的接口都要带这个头。
+     * 令牌为空就不加 —— 后端没设令牌时它也不认这个头, 加了无害但没必要。
+     * health 是免鉴权的例外, 带上也无妨。
+     *
+     * ⚠️ 这里刻意不写那个通配路径的写法 (斜杠-星号)。Kotlin 的块注释**可以嵌套**,
+     * 注释里出现 "斜杠星号" 会开一层新注释, 于是后面的 "星号斜杠" 只关掉内层,
+     * 整个注释会一路吞掉后面的代码, 报出来却是几十行外的另一个语法错。
+     */
+    private fun Request.Builder.auth(token: String): Request.Builder =
+        if (token.isBlank()) this else header("X-Sched-Token", token)
+
+    private fun get(url: String, token: String): JSONObject {
+        val req = Request.Builder().url(url).auth(token).get().build()
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
+            if (resp.code == 401) throw UnauthorizedException()
             if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}: ${body.take(200)}")
             return JSONObject(body)
         }
     }
 
-    private fun postJson(url: String, payload: JSONObject): JSONObject {
+    private fun postJson(url: String, payload: JSONObject, token: String): JSONObject {
         val req = Request.Builder()
             .url(url)
+            .auth(token)
             .post(payload.toString().toRequestBody(JSON))
             .build()
         client.newCall(req).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
+            if (resp.code == 401) throw UnauthorizedException()
             if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}: ${body.take(200)}")
             return JSONObject(body)
         }
@@ -53,47 +77,55 @@ object Api {
 
     // ---------------------------------------------------------------- 接口
 
-    suspend fun health(baseUrl: String): Result<Health> = withContext(Dispatchers.IO) {
+    suspend fun health(baseUrl: String, token: String): Result<Health> = withContext(Dispatchers.IO) {
         runCatching {
-            val j = get("${base(baseUrl)}/api/health")
+            val j = get("${base(baseUrl)}/api/health", token)
             Health(
                 ready = j.optBoolean("ready", false),
                 backend = str(j, "backend"),
                 events = j.optInt("events", 0),
                 error = str(j, "error"),
+                // 未授权时后端只回 ready + auth_required, 不带 events
+                authRequired = j.optBoolean("auth_required", false) && !j.has("events"),
             )
         }
     }
 
-    suspend fun events(baseUrl: String): Result<List<ScheduleEvent>> = withContext(Dispatchers.IO) {
-        runCatching {
-            val arr = get("${base(baseUrl)}/api/events").optJSONArray("events") ?: JSONArray()
-            (0 until arr.length()).map { i -> parseEvent(arr.getJSONObject(i)) }
-        }
-    }
-
-    suspend fun chat(baseUrl: String, text: String): Result<ChatResult> = withContext(Dispatchers.IO) {
-        runCatching {
-            val j = postJson("${base(baseUrl)}/api/chat", JSONObject().put("text", text))
-            parseChat(j)
-        }
-    }
-
-    suspend fun delete(baseUrl: String, id: Int): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val req = Request.Builder()
-                .url("${base(baseUrl)}/api/events/$id")
-                .delete()
-                .build()
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+    suspend fun events(baseUrl: String, token: String): Result<List<ScheduleEvent>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val arr = get("${base(baseUrl)}/api/events", token)
+                    .optJSONArray("events") ?: JSONArray()
+                (0 until arr.length()).map { i -> parseEvent(arr.getJSONObject(i)) }
             }
         }
-    }
 
-    suspend fun reset(baseUrl: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun chat(baseUrl: String, token: String, text: String): Result<ChatResult> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val j = postJson("${base(baseUrl)}/api/chat", JSONObject().put("text", text), token)
+                parseChat(j)
+            }
+        }
+
+    suspend fun delete(baseUrl: String, token: String, id: Int): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("${base(baseUrl)}/api/events/$id")
+                    .auth(token)
+                    .delete()
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.code == 401) throw UnauthorizedException()
+                    if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+                }
+            }
+        }
+
+    suspend fun reset(baseUrl: String, token: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            postJson("${base(baseUrl)}/api/reset", JSONObject())
+            postJson("${base(baseUrl)}/api/reset", JSONObject(), token)
             Unit
         }
     }

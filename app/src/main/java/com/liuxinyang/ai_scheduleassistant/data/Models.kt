@@ -62,6 +62,8 @@ data class Health(
     val backend: String?,
     val events: Int,
     val error: String?,
+    /** 后端设了令牌, 而本机没填或填错了。此时 events 无意义。 */
+    val authRequired: Boolean = false,
 )
 
 /** 日程类型的中文名与配色分组 */

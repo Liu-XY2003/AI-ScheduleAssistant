@@ -47,12 +47,15 @@ fun SettingsScreen(
     health: Health?,
     eventCount: Int,
     theme: String,
+    token: String,
     onSave: (String) -> Unit,
     onTheme: (String) -> Unit,
+    onToken: (String) -> Unit,
     onRefresh: () -> Unit,
     onReset: () -> Unit,
 ) {
     var editing by remember(baseUrl) { mutableStateOf(baseUrl) }
+    var editingToken by remember(token) { mutableStateOf(token) }
 
     Column(
         Modifier
@@ -103,6 +106,27 @@ fun SettingsScreen(
             TextButton(onClick = onRefresh) { Text("重新检测") }
         }
 
+        Spacer(Modifier.height(4.dp))
+        Text("访问令牌", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold)
+        Text(
+            "后端如果设了 SCHED_TOKEN 就必须填这里，否则所有请求都会被拒。" +
+                "电脑端用 `export SCHED_TOKEN=...` 启动，把这个值抄过来即可。留空表示后端没设令牌。",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = editingToken,
+            onValueChange = { editingToken = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Token") },
+            placeholder = { Text("留空 = 后端未设令牌") },
+        )
+        Button(
+            onClick = { onToken(editingToken) },
+            enabled = editingToken != token,
+        ) { Text("保存令牌并重连") }
+
         Text("常用地址", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Prefs.PRESETS.forEach { (url, label) ->
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -123,14 +147,24 @@ fun SettingsScreen(
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("连接状态", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 val ok = health?.ready == true
+                // 令牌不对时给可照做的提示, 而不是红着一片让人猜
+                val needsToken = health?.authRequired == true
                 Text(
-                    if (ok) "● 已连接" else "● 未连接",
+                    when {
+                        needsToken -> "▲ 需要访问令牌"
+                        ok -> "● 已连接"
+                        else -> "● 未连接"
+                    },
                     fontSize = 13.sp,
-                    color = if (ok) Palette.Ok else Palette.Danger,
+                    color = when {
+                        needsToken -> Palette.Warn
+                        ok -> Palette.Ok
+                        else -> Palette.Danger
+                    },
                 )
                 health?.backend?.let { Text("后端: $it", fontSize = 12.sp) }
                 health?.error?.let { Text("错误: $it", fontSize = 12.sp, color = Palette.Danger) }
-                Text("日程条数: $eventCount", fontSize = 12.sp)
+                if (!needsToken) Text("日程条数: $eventCount", fontSize = 12.sp)
             }
         }
 

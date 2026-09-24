@@ -44,6 +44,47 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+  # 后端仓库有一份完整的 audit_secrets.ps1。这里只做针对本仓库的高价值检查:
+  # 安卓端泄露的典型方式是 README 或 Kotlin 注释里写死自己的服务地址。
+  hygiene:
+    name: 敏感信息检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 不得出现真实 IP / 邮箱 / 令牌
+        run: |
+          set -e
+          fail=0
+          # 私有网段 + 公网 IPv4。排除文档里惯用的示例地址 192.168.1.20 / 100.100.100.100
+          PAT_IP='\b(10\.[0-9]{1,3}|192\.168\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[0-2][0-9])\.)(\.[0-9]{1,3}){1,2}\b'
+          PAT_MAIL='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+          PAT_ABS='[A-Za-z]:\\\\?(Users|Projects|sdk)\\\\'
+          PAT_HOST='\b(aiserver|podtcp|cpod-[A-Za-z0-9]+)\b'
+
+          check() {
+            local name="$1" pat="$2"
+            local hits
+            hits=$(grep -rInE "$pat" \
+                     --include='*.kt' --include='*.kts' --include='*.md' \
+                     --include='*.xml' --include='*.toml' --include='*.properties' \
+                     --include='*.yml' --include='*.json' \
+                     . 2>/dev/null \
+                   | grep -vE '192\.168\.1\.20|100\.100\.100\.100|10\.0\.2\.2|example\.com' \
+                   | grep -v '^\./\.github/workflows/' || true)
+            if [ -n "$hits" ]; then
+              echo "::error::$name 命中:"
+              echo "$hits" | head -20
+              fail=1
+            fi
+          }
+
+          check '私有/公网 IP' "$PAT_IP"
+          check '邮箱地址'    "$PAT_MAIL"
+          check '本机绝对路径' "$PAT_ABS"
+          check '内网主机名'   "$PAT_HOST"
+          exit $fail
+
   # 主题 token 是后端仓库生成的。这里只检查"生成物存在且标注为自动生成",
   # 真正的一致性校验在后端仓库的 CI 里 (那边才有 tokens.json)。
   theme-token-guard:

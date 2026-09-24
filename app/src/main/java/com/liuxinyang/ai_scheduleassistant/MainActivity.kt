@@ -151,8 +151,10 @@ private fun App(vm: ScheduleViewModel) {
                     health = vm.health,
                     eventCount = vm.events.size,
                     theme = vm.theme,
+                    token = vm.token,
                     onSave = { vm.applyBaseUrl(it) },
                     onTheme = { vm.applyTheme(it) },
+                    onToken = { vm.applyToken(it) },
                     onRefresh = { vm.refresh() },
                     onReset = { vm.reset() },
                 )

@@ -11,6 +11,7 @@ import com.liuxinyang.ai_scheduleassistant.data.ChatResult
 import com.liuxinyang.ai_scheduleassistant.data.Health
 import com.liuxinyang.ai_scheduleassistant.data.Prefs
 import com.liuxinyang.ai_scheduleassistant.data.ScheduleEvent
+import com.liuxinyang.ai_scheduleassistant.data.UnauthorizedException
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
@@ -24,6 +25,10 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 外观: system / paper / night。改动立刻生效并落盘。 */
     var theme by mutableStateOf(prefs.theme)
+        private set
+
+    /** 访问令牌 (后端设了 SCHED_TOKEN 时才需要)。 */
+    var token by mutableStateOf(prefs.token)
         private set
 
     var health by mutableStateOf<Health?>(null)
@@ -58,10 +63,16 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
         theme = prefs.theme
     }
 
+    fun applyToken(t: String) {
+        prefs.token = t
+        token = prefs.token
+        refresh()
+    }
+
     fun refresh() {
         viewModelScope.launch {
-            health = Api.health(baseUrl).getOrNull()
-            Api.events(baseUrl)
+            health = Api.health(baseUrl, token).getOrNull()
+            Api.events(baseUrl, token)
                 .onSuccess { list ->
                     events = list
                     // 有日程时把日历跳到最近一条, 方便一眼看到
@@ -73,9 +84,16 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
-                .onFailure { health = health?.copy(ready = false, error = it.message) }
+                .onFailure {
+                    health = health?.copy(ready = false, error = authMessage(it))
+                }
         }
     }
+
+    /** 把 401 翻译成用户能照做的提示, 而不是一句 "HTTP 401"。 */
+    private fun authMessage(e: Throwable): String =
+        if (e is UnauthorizedException) "后端需要访问令牌，请在设置里填写"
+        else (e.message ?: "未知错误")
 
     fun send(text: String) {
         val t = text.trim()
@@ -83,7 +101,7 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             busy = true
             lastResult = null
-            Api.chat(baseUrl, t)
+            Api.chat(baseUrl, token, t)
                 .onSuccess { r ->
                     lastResult = r
                     // 写入成功后跳到目标日期并刷新列表
@@ -97,8 +115,8 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
                     refresh()
                 }
                 .onFailure { e ->
-                    toast = "请求失败: ${e.message}"
-                    health = health?.copy(ready = false, error = e.message)
+                    toast = "请求失败: ${authMessage(e)}"
+                    health = health?.copy(ready = false, error = authMessage(e))
                 }
             busy = false
         }
@@ -106,17 +124,17 @@ class ScheduleViewModel(app: Application) : AndroidViewModel(app) {
 
     fun delete(id: Int) {
         viewModelScope.launch {
-            Api.delete(baseUrl, id)
+            Api.delete(baseUrl, token, id)
                 .onSuccess { refresh() }
-                .onFailure { toast = "删除失败: ${it.message}" }
+                .onFailure { toast = "删除失败: ${authMessage(it)}" }
         }
     }
 
     fun reset() {
         viewModelScope.launch {
-            Api.reset(baseUrl)
+            Api.reset(baseUrl, token)
                 .onSuccess { refresh() }
-                .onFailure { toast = "清空失败: ${it.message}" }
+                .onFailure { toast = "清空失败: ${authMessage(it)}" }
         }
     }
 
